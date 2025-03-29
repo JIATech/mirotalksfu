@@ -20,12 +20,12 @@ class Mattermost {
             password,
             commands = '/sfu',
             texts = '/sfu',
-        } = config.integrations.mattermost || {};
+        } = config.mattermost || {};
 
         if (!enabled) return; // Check if Mattermost integration is enabled
 
         this.app = app;
-        this.allowed = config.api?.allowed?.mattermost || false;
+        this.allowed = config.api.allowed && config.api.allowed.mattermost;
         this.token = token;
         this.serverUrl = serverUrl;
         this.username = username;

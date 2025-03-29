@@ -204,14 +204,12 @@ $ git clone https://github.com/miroslavpejic85/mirotalksfu.git
 $ cd mirotalksfu
 # Copy app/src/config.template.js in app/src/config.js and edit it if needed
 $ cp app/src/config.template.js app/src/config.js
-# Copy .env.template to .env and edit it if needed
-$ cp .env.template .env
 # Install dependencies - be patient, the first time will take a few minutes, in the meantime have a good coffee ;)
 $ npm install
 # Start the server
 $ npm start
 # If you want to start the server on a different port than the default use an env var
-$ SERVER_LISTEN_PORT=3011 npm start
+$ PORT=3011 npm start
 ```
 
 - Open [https://localhost:3010](https://localhost:3010) or `:3011` if the default port has been changed in your browser.
@@ -241,8 +239,6 @@ $ git clone https://github.com/miroslavpejic85/mirotalksfu.git
 $ cd mirotalksfu
 # Copy app/src/config.template.js in app/src/config.js IMPORTANT (edit it according to your needs)
 $ cp app/src/config.template.js app/src/config.js
-# Copy .env.template to .env and edit it if needed
-$ cp .env.template .env
 # Copy docker-compose.template.yml in docker-compose.yml and edit it if needed
 $ cp docker-compose.template.yml docker-compose.yml
 # (Optional) Get official image from Docker Hub

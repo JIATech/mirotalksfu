@@ -64,7 +64,7 @@ dev dependencies: {
  * @license For commercial or closed source, contact us at license.mirotalk@gmail.com or purchase directly via CodeCanyon
  * @license CodeCanyon: https://codecanyon.net/item/mirotalk-sfu-webrtc-realtime-video-conferences/40769970
  * @author  Miroslav Pejic - miroslav.pejic.85@gmail.com
- * @version 1.8.00
+ * @version 1.7.99
  *
  */
 
@@ -107,8 +107,8 @@ const packageJson = require('../../package.json');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto-js');
 const RtmpStreamer = require('./RtmpStreamer.js'); // Import the RtmpStreamer class
-const rtmpCfg = config?.media?.rtmp;
-const rtmpDir = rtmpCfg?.dir || 'rtmp';
+const rtmpCfg = config.server.rtmp;
+const rtmpDir = rtmpCfg && rtmpCfg.dir ? rtmpCfg.dir : 'rtmp';
 
 // File and Url Rtmp streams count
 let rtmpFileStreamsCount = 0;
@@ -120,14 +120,14 @@ const nodemailer = require('./lib/nodemailer');
 // Slack API
 const CryptoJS = require('crypto-js');
 const qS = require('qs');
-const slackEnabled = config?.integrations?.slack?.enabled || false;
-const slackSigningSecret = config?.integrations?.slack?.signingSecret || '';
+const slackEnabled = config.slack.enabled;
+const slackSigningSecret = config.slack.signingSecret;
 
 const app = express();
 
 const options = {
-    cert: fs.readFileSync(path.join(__dirname, config?.server?.ssl.cert || '../ssl/cert.pem'), 'utf-8'),
-    key: fs.readFileSync(path.join(__dirname, config?.server?.ssl.key || '../ssl/key.pem'), 'utf-8'),
+    cert: fs.readFileSync(path.join(__dirname, config.server.ssl.cert), 'utf-8'),
+    key: fs.readFileSync(path.join(__dirname, config.server.ssl.key), 'utf-8'),
 };
 
 const corsOptions = {
@@ -143,38 +143,38 @@ const io = socketIo(server, {
     cors: corsOptions,
 });
 
-const host = config?.server?.hostUrl || `http://localhost:${config?.server?.listen?.port || 3010}`;
-const trustProxy = Boolean(config?.server?.trustProxy);
+const host = config.server.hostUrl || `http://localhost:${config.server.listen.port}`;
+const trustProxy = !!config.server.trustProxy;
 
 const jwtCfg = {
-    JWT_KEY: config?.security?.jwt?.key || 'mirotalksfu_jwt_secret',
-    JWT_EXP: config?.security?.jwt?.exp || '1h',
+    JWT_KEY: (config.jwt && config.jwt.key) || 'mirotalksfu_jwt_secret',
+    JWT_EXP: (config.jwt && config.jwt.exp) || '1h',
 };
 
 const hostCfg = {
-    protected: config?.security?.host?.protected,
-    authenticated: !config?.security?.host?.protected,
-    user_auth: config?.security?.host?.user_auth,
-    users: config?.security?.host?.users,
-    users_from_db: config?.security?.host?.users_from_db,
-    users_api_room_allowed: config?.security?.host?.users_api_room_allowed,
-    users_api_rooms_allowed: config?.security?.host?.users_api_rooms_allowed,
-    users_api_endpoint: config?.security?.host?.users_api_endpoint,
-    users_api_secret_key: config?.security?.host?.users_api_secret_key,
-    api_room_exists: config?.security?.host?.api_room_exists,
-    presenters: config?.security?.host?.presenters,
+    protected: config.host.protected,
+    user_auth: config.host.user_auth,
+    users: config.host.users,
+    users_from_db: config.host.users_from_db,
+    users_api_room_allowed: config.host.users_api_room_allowed,
+    users_api_rooms_allowed: config.host.users_api_rooms_allowed,
+    users_api_endpoint: config.host.users_api_endpoint,
+    users_api_secret_key: config.host.users_api_secret_key,
+    api_room_exists: config.host.api_room_exists,
+    users: config.host.users,
+    authenticated: !config.host.protected,
 };
 
 const restApi = {
     basePath: '/api/v1', // api endpoint path
     docs: host + '/api/v1/docs', // api docs
-    allowed: config.api?.allowed || {},
+    allowed: config.api?.allowed,
 };
 
 // Sentry monitoring
-const sentryEnabled = config.integrations?.sentry?.enabled || false;
-const sentryDSN = config.integrations.sentry.DSN;
-const sentryTracesSampleRate = config.integrations.sentry.tracesSampleRate;
+const sentryEnabled = config.sentry.enabled;
+const sentryDSN = config.sentry.DSN;
+const sentryTracesSampleRate = config.sentry.tracesSampleRate;
 if (sentryEnabled) {
     Sentry.init({
         dsn: sentryDSN,
@@ -202,7 +202,7 @@ const webhook = {
 };
 
 // Discord Bot
-const { enabled, commands, token } = config?.integrations?.discord || {};
+const { enabled, commands, token } = config.discord || {};
 
 if (enabled && commands.length > 0 && token) {
     const discordBot = new Discord(token, commands);
@@ -218,12 +218,12 @@ const defaultStats = {
 
 // OpenAI/ChatGPT
 let chatGPT;
-if (config?.integrations?.chatGPT?.enabled) {
-    if (config?.integrations?.chatGPT?.apiKey) {
+if (config.chatGPT.enabled) {
+    if (config.chatGPT.apiKey) {
         const { OpenAI } = require('openai');
         const configuration = {
-            basePath: config?.integrations?.chatGPT?.basePath,
-            apiKey: config?.integrations?.chatGPT?.apiKey,
+            basePath: config.chatGPT.basePath,
+            apiKey: config.chatGPT.apiKey,
         };
         chatGPT = new OpenAI(configuration);
     } else {
@@ -232,18 +232,18 @@ if (config?.integrations?.chatGPT?.enabled) {
 }
 
 // OpenID Connect
-const OIDC = config?.security?.oidc || { enabled: false };
+const OIDC = config.oidc ? config.oidc : { enabled: false };
 
 // directory
 const dir = {
-    public: path.join(__dirname, '../../public'),
-    rec: path.join(__dirname, '../', config?.media?.recording?.dir || 'rec', '/'),
-    rtmp: path.join(__dirname, '../', config?.media?.rtmp?.dir || 'rtmp', '/'),
+    public: path.join(__dirname, '../../', 'public'),
+    rec: path.join(__dirname, '../', config?.server?.recording?.dir ? config.server.recording.dir + '/' : 'rec/'),
+    rtmp: path.join(__dirname, '../', config?.rtmp?.dir ? config.rtmp.dir + '/' : 'rtmp/'),
 };
 
 // Rec directory create and set max file size
-const recMaxFileSize = config?.media?.recording?.maxFileSize || 1 * 1024 * 1024 * 1024; // 1GB default
-const serverRecordingEnabled = config?.media?.recording?.enabled || false;
+const recMaxFileSize = config?.server?.recording?.maxFileSize || 1 * 1024 * 1024 * 1024; // 1GB default
+const serverRecordingEnabled = config?.server?.recording?.enabled;
 if (serverRecordingEnabled) {
     log.debug('Server Recording enabled creating dir', dir.rtmp);
     if (!fs.existsSync(dir.rec)) {
@@ -306,7 +306,7 @@ let nextMediasoupWorkerIdx = 0;
 // Autodetect announcedAddress with multiple fallback services
 if (!announcedAddress && IP === '0.0.0.0') {
     const detectPublicIp = async () => {
-        const services = config.system?.services?.ip || [
+        const services = config.services?.ip || [
             'http://api.ipify.org',
             'http://ipinfo.io/ip',
             'http://ifconfig.me/ip',
@@ -554,12 +554,12 @@ function startServer() {
 
     // UI buttons configuration
     app.get('/config', (req, res) => {
-        res.status(200).json({ message: config?.ui?.buttons || false });
+        res.status(200).json({ message: config.ui ? config.ui.buttons : false });
     });
 
     // Brand configuration
     app.get('/brand', (req, res) => {
-        res.status(200).json({ message: config?.ui?.brand || false });
+        res.status(200).json({ message: config.ui ? config.ui.brand : false });
     });
 
     // main page
@@ -780,7 +780,7 @@ function startServer() {
 
     // Get stats endpoint
     app.get('/stats', (req, res) => {
-        const stats = config?.features?.stats || defaultStats;
+        const stats = config.stats ? config.stats : defaultStats;
         // log.debug('Send stats', stats);
         res.send(stats);
     });
@@ -833,9 +833,12 @@ function startServer() {
                 authorizedIps: authHost.getAuthorizedIPs(),
             });
 
-            const isPresenter = Boolean(
-                hostCfg?.presenters?.join_first || hostCfg?.presenters?.list?.includes(username),
-            );
+            const isPresenter =
+                config.presenters && config.presenters.join_first
+                    ? true
+                    : config.presenters &&
+                      config.presenters.list &&
+                      config.presenters.list.includes(username).toString();
 
             const token = encodeToken({ username: username, password: password, presenter: isPresenter });
             const allowedRooms = await getUserAllowedRooms(username, password);
@@ -845,7 +848,8 @@ function startServer() {
 
         if (isPeerValid) {
             log.debug('PEER LOGIN OK', { ip: ip, authorized: true });
-            const isPresenter = hostCfg?.presenters?.list?.includes(username) || false;
+            const isPresenter =
+                config.presenters && config.presenters.list && config.presenters.list.includes(username).toString();
             const token = encodeToken({ username: username, password: password, presenter: isPresenter });
             const allowedRooms = await getUserAllowedRooms(username, password);
             return res.status(200).json({ message: token, allowedRooms: allowedRooms });
@@ -978,9 +982,7 @@ function startServer() {
             return res.status(400).send('RTMP server is not enabled or missing the config');
         }
 
-        const domainName = config?.integrations?.ngrok?.enabled
-            ? 'localhost'
-            : req.headers.host?.split(':')[0] || 'localhost';
+        const domainName = config.ngrok.enabled ? 'localhost' : req.headers.host.split(':')[0];
 
         const rtmpServer = rtmpCfg.server != '' ? rtmpCfg.server : false;
         const rtmpServerAppName = rtmpCfg.appName != '' ? rtmpCfg.appName : 'live';
@@ -1281,7 +1283,7 @@ function startServer() {
     // ####################################################
 
     function getServerConfig(tunnel = false) {
-        const safeConfig = {
+        return {
             // Network & Connectivity
             network: {
                 server_listen: host,
@@ -1299,74 +1301,68 @@ function startServer() {
 
             // Security & Authentication
             security: {
-                cors: corsOptions,
+                cors_options: corsOptions,
                 jwtCfg: jwtCfg,
-                host: hostCfg?.protected || hostCfg?.user_auth ? hostCfg : { presenters: hostCfg.presenters },
-                ip_lookup: config.integrations?.IPLookup?.enabled ? config.integrations.IPLookup : false,
-                oidc: OIDC?.enabled ? OIDC : false,
-                middleware: {
-                    IpWhitelist: config?.security?.middleware?.IpWhitelist?.enabled
-                        ? config.security.middleware.IpWhitelist
-                        : false,
-                    //...
-                },
+                hostProtected: hostCfg.protected || hostCfg.user_auth ? hostCfg : false,
+                ip_lookup_enabled: config.IPLookup?.enabled ? config.IPLookup : false,
+                oidc: OIDC.enabled ? OIDC : false,
             },
 
             // API & Services
             api: {
                 rest_api: restApi,
-                webhook: webhook.enabled ? webhook : false,
+                webhook: webhook,
+                presenters: config.presenters,
             },
 
             // Media Configuration
             media: {
                 mediasoup: {
-                    listenInfos: config.mediasoup?.webRtcTransport?.listenInfos,
-                    worker_bin: mediasoup?.workerBin,
-                    server_version: mediasoup?.version,
-                    client_version: mediasoupClient?.version,
+                    listenInfos: config.mediasoup.webRtcTransport.listenInfos,
+                    worker_bin: mediasoup.workerBin,
+                    server_version: mediasoup.version,
+                    client_version: mediasoupClient.version,
                 },
-                rtmp_enabled: rtmpCfg?.enabled ? rtmpCfg : false,
-                videoAI_enabled: config.integrations?.videoAI?.enabled ? config.integrations.videoAI : false,
-                server_recording: config?.media?.recording?.enabled ? config.media.recording : false,
+                rtmp_enabled: rtmpCfg.enabled ? rtmpCfg : false,
+                videoAI_enabled: config.videoAI.enabled ? config.videoAI : false,
+                server_recording: config?.server?.recording,
             },
 
             // Communication Integrations
             integrations: {
-                discord: config.integrations?.discord?.enabled ? config.integrations.discord : false,
-                mattermost: config.integrations?.mattermost?.enabled ? config.integrations.mattermost : false,
-                slack: slackEnabled ? config.integrations?.slack : false,
-                chatGPT: config.integrations?.chatGPT?.enabled ? config.integrations.chatGPT : false,
-                email_alerts: config?.integrations?.email?.alert ? config.integrations.email : false,
+                discord: config.discord?.enabled ? config.discord : false,
+                mattermost: config.mattermost?.enabled ? config.mattermost : false,
+                slack: slackEnabled ? config.slack : false,
+                chatGPT: config.chatGPT?.enabled ? config.chatGPT : false,
+                email_alerts: config.email?.alert ? config.email : false,
             },
 
             // UI & Branding
             ui: {
-                brand: config.ui?.brand,
-                buttons: config.ui?.buttons,
+                brand: config.ui.brand,
+                buttons: config.ui.buttons,
+                middleware: config.middleware,
             },
 
             // Monitoring & Analytics
             monitoring: {
-                sentry: sentryEnabled ? config.integrations?.sentry : false,
-                stats: config.features?.stats?.enabled ? config.features.stats : false,
-                system_info: config.system?.info,
+                sentry: sentryEnabled ? config.sentry : false,
+                stats: config.stats?.enabled ? config.stats : false,
+                system_info: config.systemInfo,
             },
 
             // Features & Functionality
             features: {
-                survey: config.features?.survey?.enabled ? config.features.survey : false,
-                redirect: config.features?.redirect?.enabled ? config.features.redirect : false,
+                survey: config.survey?.enabled ? config.survey : false,
+                redirect: config.redirect?.enabled ? config.redirect : false,
             },
 
             // Version Information
             versions: {
-                app: packageJson?.version,
+                app: packageJson.version,
                 node: process.versions.node,
             },
         };
-
-        return safeConfig;
     }
 
     // ####################################################
@@ -1375,8 +1371,8 @@ function startServer() {
 
     async function ngrokStart() {
         try {
-            await ngrok.authtoken(config?.integrations?.ngrok?.authToken);
-            const listener = await ngrok.forward({ addr: config?.server?.listen?.port });
+            await ngrok.authtoken(config.ngrok.authToken);
+            const listener = await ngrok.forward({ addr: config.server.listen.port });
             const tunnelUrl = listener.url();
             log.info('Server config', getServerConfig(tunnelUrl));
         } catch (err) {
@@ -1390,7 +1386,7 @@ function startServer() {
     // START SERVER
     // ####################################################
 
-    server.listen(config?.server?.listen?.port || 3010, () => {
+    server.listen(config.server.listen.port, () => {
         log.log(
             `%c
     
@@ -1405,7 +1401,7 @@ function startServer() {
             'font-family:monospace',
         );
 
-        if (config?.integrations?.ngrok?.enabled && config?.integrations?.ngrok?.authToken !== '') {
+        if (config.ngrok.enabled && config.ngrok.authToken !== '') {
             return ngrokStart();
         }
         log.info('Server config', getServerConfig());
@@ -1531,7 +1527,7 @@ function startServer() {
             const peer_ip = getIpSocket(socket);
 
             // Get peer Geo Location
-            if (config?.integrations?.IPLookup?.enabled && peer_ip != '::1') {
+            if (config.IPLookup.enabled && peer_ip != '::1') {
                 dataObject.peer_geo = await getPeerGeoLocation(peer_ip);
             }
 
@@ -1573,10 +1569,10 @@ function startServer() {
                             return cb('unauthorized');
                         }
 
-                        const is_presenter =
+                        is_presenter =
                             presenter === '1' ||
                             presenter === 'true' ||
-                            (hostCfg?.presenters?.join_first && room?.getPeersCount() === 0);
+                            (config.presenters.join_first && room.getPeersCount() === 0);
 
                         log.debug('[Join] - HOST PROTECTED - USER AUTH check peer', {
                             ip: peer_ip,
@@ -1641,7 +1637,7 @@ function startServer() {
                 is_presenter: is_presenter,
             };
             // first we check if the username match the presenters username
-            if (hostCfg?.presenters?.list?.includes(peer_name)) {
+            if (config.presenters && config.presenters.list && config.presenters.list.includes(peer_name)) {
                 presenters[socket.room_id][socket.id] = presenter;
             } else {
                 // if not match the presenters username, the first one join room is the presenter
@@ -2490,7 +2486,7 @@ function startServer() {
         socket.on('getChatGPT', async ({ time, room, name, prompt, context }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.chatGPT?.enabled) return cb({ message: 'ChatGPT seems disabled, try later!' });
+            if (!config.chatGPT.enabled) return cb({ message: 'ChatGPT seems disabled, try later!' });
 
             // https://platform.openai.com/docs/api-reference/completions/create
             try {
@@ -2498,10 +2494,10 @@ function startServer() {
                 context.push({ role: 'user', content: prompt });
                 // Call OpenAI's API to generate response
                 const completion = await chatGPT.chat.completions.create({
-                    model: config?.integrations?.chatGPT?.model || 'gpt-3.5-turbo',
+                    model: config.chatGPT.model || 'gpt-3.5-turbo',
                     messages: context,
-                    max_tokens: config?.integrations?.chatGPT?.max_tokens,
-                    temperature: config?.integrations?.chatGPT?.temperature,
+                    max_tokens: config.chatGPT.max_tokens,
+                    temperature: config.chatGPT.temperature,
                 });
                 // Extract message from completion
                 const message = completion.choices[0].message.content.trim();
@@ -2536,14 +2532,14 @@ function startServer() {
 
         // https://docs.heygen.com/reference/list-avatars-v2
         socket.on('getAvatarList', async ({}, cb) => {
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
 
             try {
-                const response = await axios.get(`${config?.integrations?.videoAI?.basePath}/v2/avatars`, {
+                const response = await axios.get(`${config.videoAI.basePath}/v2/avatars`, {
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                        'X-Api-Key': config.videoAI.apiKey,
                     },
                 });
 
@@ -2560,14 +2556,14 @@ function startServer() {
 
         // https://docs.heygen.com/reference/list-voices-v2
         socket.on('getVoiceList', async ({}, cb) => {
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
 
             try {
-                const response = await axios.get(`${config?.integrations?.videoAI?.basePath}/v2/voices`, {
+                const response = await axios.get(`${config.videoAI.basePath}/v2/voices`, {
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                        'X-Api-Key': config.videoAI.apiKey,
                     },
                 });
 
@@ -2586,12 +2582,12 @@ function startServer() {
         socket.on('streamingNew', async ({ quality, avatar_id, voice_id }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
             try {
                 const voice = voice_id ? { voice_id: voice_id } : {};
                 const response = await axios.post(
-                    `${config?.integrations?.videoAI?.basePath}/v1/streaming.new`,
+                    `${config.videoAI.basePath}/v1/streaming.new`,
                     {
                         quality,
                         avatar_id,
@@ -2601,7 +2597,7 @@ function startServer() {
                         headers: {
                             accept: 'application/json',
                             'content-type': 'application/json',
-                            'x-api-key': config?.integrations?.videoAI?.apiKey,
+                            'x-api-key': config.videoAI.apiKey,
                         },
                     },
                 );
@@ -2621,17 +2617,17 @@ function startServer() {
         socket.on('streamingStart', async ({ session_id, sdp }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
 
             try {
                 const response = await axios.post(
-                    `${config?.integrations?.videoAI?.basePath}/v1/streaming.start`,
+                    `${config.videoAI.basePath}/v1/streaming.start`,
                     { session_id, sdp },
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                            'X-Api-Key': config.videoAI.apiKey,
                         },
                     },
                 );
@@ -2651,17 +2647,17 @@ function startServer() {
         socket.on('streamingICE', async ({ session_id, candidate }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
 
             try {
                 const response = await axios.post(
-                    `${config?.integrations?.videoAI?.basePath}/v1/streaming.ice`,
+                    `${config.videoAI.basePath}/v1/streaming.ice`,
                     { session_id, candidate },
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                            'X-Api-Key': config.videoAI.apiKey,
                         },
                     },
                 );
@@ -2681,12 +2677,12 @@ function startServer() {
         socket.on('streamingTask', async ({ session_id, text }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
 
             try {
                 const response = await axios.post(
-                    `${config?.integrations?.videoAI?.basePath}/v1/streaming.task`,
+                    `${config.videoAI.basePath}/v1/streaming.task`,
                     {
                         session_id,
                         text,
@@ -2694,7 +2690,7 @@ function startServer() {
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                            'X-Api-Key': config.videoAI.apiKey,
                         },
                     },
                 );
@@ -2714,19 +2710,19 @@ function startServer() {
         socket.on('streamingInterrupt', async ({ session_id, text }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
 
             try {
                 const response = await axios.post(
-                    `${config?.integrations?.videoAI?.basePath}/v1/streaming.interrupt`,
+                    `${config.videoAI.basePath}/v1/streaming.interrupt`,
                     {
                         session_id,
                     },
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                            'X-Api-Key': config.videoAI.apiKey,
                         },
                     },
                 );
@@ -2745,11 +2741,10 @@ function startServer() {
         socket.on('talkToOpenAI', async ({ text, context }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
-
             try {
-                const systemLimit = config?.integrations?.videoAI?.systemLimit;
+                const systemLimit = config.videoAI.systemLimit;
                 const arr = {
                     messages: [...context, { role: 'system', content: systemLimit }, { role: 'user', content: text }],
                     model: 'gpt-3.5-turbo',
@@ -2774,19 +2769,18 @@ function startServer() {
         socket.on('streamingStop', async ({ session_id }, cb) => {
             if (!roomExists(socket)) return;
 
-            if (!config?.integrations?.videoAI?.enabled || !config?.integrations?.videoAI?.apiKey)
+            if (!config.videoAI.enabled || !config.videoAI.apiKey)
                 return cb({ error: 'Video AI seems disabled, try later!' });
-
             try {
                 const response = await axios.post(
-                    `${config?.integrations?.videoAI?.basePath}/v1/streaming.stop`,
+                    `${config.videoAI.basePath}/v1/streaming.stop`,
                     {
                         session_id,
                     },
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Api-Key': config?.integrations?.videoAI?.apiKey,
+                            'X-Api-Key': config.videoAI.apiKey,
                         },
                     },
                 );
@@ -2826,12 +2820,7 @@ function startServer() {
             if (!isPresenter) return cb(false);
 
             const room = getRoom(socket);
-
-            const DEFAULT_HOST = 'localhost';
-            const host = config?.ngrok?.enabled
-                ? DEFAULT_HOST
-                : socket?.handshake?.headers?.host?.split(':')[0] || DEFAULT_HOST;
-
+            const host = config.ngrok.enabled ? 'localhost' : socket.handshake.headers.host.split(':')[0];
             const rtmp = await room.startRTMP(socket.id, room, host, 1935, `../${rtmpDir}/${file}`);
 
             if (rtmp !== false) rtmpFileStreamsCount++;
@@ -2875,12 +2864,7 @@ function startServer() {
             if (!isPresenter) return cb(false);
 
             const room = getRoom(socket);
-
-            const DEFAULT_HOST = 'localhost';
-            const host = config?.integrations?.ngrok?.enabled
-                ? DEFAULT_HOST
-                : socket?.handshake?.headers?.host?.split(':')[0] || DEFAULT_HOST;
-
+            const host = config.ngrok.enabled ? 'localhost' : socket.handshake.headers.host.split(':')[0];
             const rtmp = await room.startRTMPfromURL(socket.id, room, host, 1935, inputVideoURL);
 
             if (rtmp !== false) rtmpUrlStreamsCount++;
@@ -3282,7 +3266,11 @@ function startServer() {
 
     function isPeerPresenter(room_id, peer_id, peer_name, peer_uuid) {
         try {
-            if (hostCfg?.presenters?.join_first && (!presenters[room_id] || !presenters[room_id][peer_id])) {
+            if (
+                config.presenters &&
+                config.presenters.join_first &&
+                (!presenters[room_id] || !presenters[room_id][peer_id])
+            ) {
                 // Presenter not in the presenters config list, disconnected, or peer_id changed...
                 for (const [existingPeerID, presenter] of Object.entries(presenters[room_id] || {})) {
                     if (presenter.peer_name === peer_name) {
@@ -3298,13 +3286,13 @@ function startServer() {
             }
 
             const isPresenter =
-                // First condition: join_first validation
-                (hostCfg?.presenters?.join_first &&
-                    presenters[room_id]?.[peer_id]?.peer_name === peer_name &&
-                    presenters[room_id]?.[peer_id]?.peer_uuid === peer_uuid &&
-                    Object.keys(presenters[room_id]?.[peer_id] || {}).length > 1) ||
-                // Fallback condition: list check
-                hostCfg?.presenters?.list?.includes(peer_name);
+                (config.presenters &&
+                    config.presenters.join_first &&
+                    typeof presenters[room_id] === 'object' &&
+                    Object.keys(presenters[room_id][peer_id]).length > 1 &&
+                    presenters[room_id][peer_id]['peer_name'] === peer_name &&
+                    presenters[room_id][peer_id]['peer_uuid'] === peer_uuid) ||
+                (config.presenters && config.presenters.list && config.presenters.list.includes(peer_name));
 
             log.debug('isPeerPresenter', {
                 room_id: room_id,
@@ -3503,7 +3491,7 @@ function startServer() {
 
         // Get allowed rooms for user from config.js file
         if (hostCfg.protected && !hostCfg.users_from_db) {
-            const isOIDCEnabled = config?.security?.oidc?.enabled;
+            const isOIDCEnabled = config.oidc && config.oidc.enabled;
 
             const user = hostCfg.users.find((user) => user.displayname === username || user.username === username);
 
@@ -3524,7 +3512,7 @@ function startServer() {
 
         if (!username || !room) return false;
 
-        const isOIDCEnabled = config?.security?.oidc?.enabled;
+        const isOIDCEnabled = config.oidc && config.oidc.enabled;
 
         if (hostCfg.protected || hostCfg.user_auth) {
             // Check if allowed room for user from DB...
@@ -3551,7 +3539,7 @@ function startServer() {
                 }
             }
 
-            const isInPresenterLists = hostCfg?.presenters?.list?.includes(username);
+            const isInPresenterLists = config.presenters.list.includes(username);
 
             if (isInPresenterLists) {
                 log.debug('isRoomAllowedForUser - user in presenters list room allowed', room);
@@ -3583,7 +3571,7 @@ function startServer() {
     }
 
     async function getPeerGeoLocation(ip) {
-        const endpoint = config?.integrations?.IPLookup?.getEndpoint(ip);
+        const endpoint = config.IPLookup.getEndpoint(ip);
         log.debug('Get peer geo', { ip: ip, endpoint: endpoint });
         return axios
             .get(endpoint)

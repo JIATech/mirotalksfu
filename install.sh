@@ -96,7 +96,6 @@ if [ "$answer" != "${answer#[Yy]}" ] ;then
 fi
 
 CONFIG=app/src/config.js
-ENV=.env
 
 if ! [ -f "$CONFIG" ]; then
 
@@ -104,7 +103,6 @@ if ! [ -f "$CONFIG" ]; then
 
     cp app/src/config.template.js $CONFIG
 
-    cp .env.template $ENV
 fi
 
 printf 'Use docker (y/n)? '
